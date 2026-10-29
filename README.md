@@ -8,14 +8,14 @@
 
 1. 电脑需要 Windows 10/11、网络连接，以及已安装的 Codex CLI。可按 [Codex 官方安装说明](https://learn.chatgpt.com/docs/cli)安装；如果已有 Node.js 和 npm，也可在 PowerShell 中运行 `npm install -g @openai/codex@latest`。
 2. 在 PowerShell 中运行 `codex login`，选择 **使用 ChatGPT 登录**，完成浏览器登录。运行 `codex login status`，确认显示 ChatGPT 登录。API Key 登录不会使用 ChatGPT 订阅额度。
-3. 从本仓库下载 [CodexWindowStarter.exe](release/CodexWindowStarter.exe)：在文件页面点击右上角的下载按钮。把它放到一个固定目录，例如 `C:\Tools\CodexWindowStarter\`，然后双击打开。程序不包含 Codex CLI，不能替代第 1 步。
+3. 从 [GitHub Releases 下载最新版 CodexWindowStarter.exe](https://github.com/Georgeupup/codex-auto-refresh/releases/latest/download/CodexWindowStarter.exe)。把它放到一个固定目录，例如 `C:\Tools\CodexWindowStarter\`，然后双击打开。程序不包含 Codex CLI，不能替代第 1 步。
 
 ## 设置定时运行
 
 1. 默认时间为 **06:00、11:00、16:00、21:00**。点击 **「＋ 添加时间点」**，在弹出的选择框中选小时和分钟；点击某一行右侧的 **×** 可以删除时间点。时间使用电脑的本地时区。
 2. 程序启动时会自动填写找到的 `codex.cmd` 或 `codex.exe` 路径。安装或更新 CLI 后，可点击 **「自动查找」**重新扫描，再点击 **「检查登录」**。程序会检查 PATH、Codex 独立安装目录、npm 全局目录和桌面端的 CLI 目录，并优先选择可运行的较新版本；仍找不到时点击 **「选择」**手动指定。
 3. 可以点击 **「立即触发一次 · 消耗额度」**进行实际测试。它会发送一条请求，成功后在执行记录中显示本次 token 数。
-4. 点击 **「保存并启用」**。程序会为每个时间点创建 Windows 计划任务，并添加当前用户登录后的补跑启动项。此后可以关闭软件窗口，计划任务仍会运行。
+4. 点击 **「保存并启用」**。程序会为每个时间点创建 Windows 计划任务，并添加当前用户登录后的补跑启动项。点击窗口右上角的 **×** 会将界面收起到系统托盘；点击托盘图标可重新打开，右键选择 **「完全退出」**才会关闭界面进程。定时任务在界面进程退出后仍会运行。
 5. 点击 **「停用」**会删除本工具创建的计划任务和启动项，保留时间设置与执行记录。
 
 首次启用后请不要移动或删除 exe。要换位置或升级程序，先在旧程序中点击「停用」，再在新位置打开程序并点击「保存并启用」，让 Windows 任务指向新文件。
@@ -51,7 +51,9 @@ python app.py
 .\build.ps1
 ```
 
-输出为 `dist\CodexWindowStarter.exe`。源代码入口为 `app.py`；`core.py` 负责配置与 CLI 请求，`scheduler.py` 负责 Windows 计划任务和启动项。
+输出为 `dist\CodexWindowStarter.exe`。正式版本的 exe 发布在 GitHub Releases，仓库中不存放构建产物。源代码入口为 `app.py`；`core.py` 负责配置与 CLI 请求，`scheduler.py` 负责 Windows 计划任务和启动项。
+
+窗口、托盘和 exe 使用同一套原创的编织图形加闹钟图标，非 OpenAI 官方标志。要重新生成图标，运行 `python assets\generate_icon.py`。
 
 ## 致谢与许可
 

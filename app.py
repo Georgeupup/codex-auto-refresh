@@ -5,16 +5,23 @@ from __future__ import annotations
 import argparse
 import json
 import msvcrt
+import queue
 import sys
 import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from tkinter import BOTH, END, LEFT, RIGHT, X, Y, Button, Canvas, Entry, Frame, Label, StringVar, Text, Toplevel, filedialog, messagebox, ttk
+from tkinter import BOTH, END, LEFT, RIGHT, X, Y, Button, Canvas, Entry, Frame, Label, PhotoImage, StringVar, Text, Toplevel, filedialog, messagebox, ttk
 from tkinter import Tk
 
 import core
 import scheduler
+from tray import TrayIcon
+
+
+def asset_path(name: str) -> Path:
+    root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return root / "assets" / name
 
 
 def _slot_datetime(slot: str, now: datetime) -> datetime:
@@ -105,6 +112,9 @@ class App(Tk):
         self.geometry("900x680")
         self.minsize(780, 650)
         self.configure(bg=BG)
+        self._window_icon = PhotoImage(file=str(asset_path("logo.png")))
+        self._header_icon = PhotoImage(file=str(asset_path("logo_32.png")))
+        self.iconphoto(True, self._window_icon)
         config = core.load_config()
         self.time_slots = config["times"]
         self.codex = StringVar(value=config["codex_path"])
@@ -116,6 +126,7 @@ class App(Tk):
         header.pack_propagate(False)
         top = Frame(header, bg="#111C35")
         top.pack(fill=X, padx=28, pady=(13, 0))
+        Label(top, image=self._header_icon, bg="#111C35").pack(side=LEFT, padx=(0, 9))
         Label(top, text="CODEX  /  WINDOW TIMER", bg="#111C35", fg="#91A6D5", font=("Segoe UI", 9, "bold")).pack(side=LEFT)
         self.badge = Label(top, text="  检查中  ", bg="#26334D", fg=WHITE, font=("Microsoft YaHei UI", 9), padx=10, pady=5)
         self.badge.pack(side=RIGHT)
@@ -198,6 +209,45 @@ class App(Tk):
         self.render_times()
         self.refresh()
         self.tick()
+        self._tray_actions: queue.SimpleQueue[str] = queue.SimpleQueue()
+        self._tray: TrayIcon | None = TrayIcon(asset_path("logo.ico"), self._tray_actions.put)
+        try:
+            self._tray.start()
+        except RuntimeError as exc:
+            self._tray = None
+            self.notice.set(f"托盘图标不可用：{exc}。关闭窗口将直接退出界面。")
+        self.protocol("WM_DELETE_WINDOW", self.hide_to_tray)
+        self.after(100, self._poll_tray_actions)
+
+    def _poll_tray_actions(self) -> None:
+        try:
+            while True:
+                action = self._tray_actions.get_nowait()
+                if action == "show":
+                    self.restore_window()
+                elif action == "exit":
+                    self.exit_completely()
+                    return
+        except queue.Empty:
+            pass
+        self.after(100, self._poll_tray_actions)
+
+    def hide_to_tray(self) -> None:
+        if self._tray is not None and self._tray.visible:
+            self.withdraw()
+        else:
+            self.destroy()
+
+    def restore_window(self) -> None:
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        self.refresh()
+
+    def exit_completely(self) -> None:
+        if self._tray is not None:
+            self._tray.stop()
+        self.destroy()
 
     def tick(self) -> None:
         self.update_next_run()
