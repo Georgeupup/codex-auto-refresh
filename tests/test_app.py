@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -67,7 +68,22 @@ class SchedulingTests(unittest.TestCase):
 
     def test_model_error_explains_cli_update(self):
         events = [{"type": "turn.failed", "error": {"message": '{"error":{"code":"model_not_found","message":"unsupported"}}'}}]
-        self.assertIn("更新的 codex.exe", core._failure_message(events, 1))
+        self.assertIn("自动查找", core._failure_message(events, 1))
+
+    def test_auto_find_checks_custom_npm_prefix_outside_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            roaming = Path(directory) / "roaming"
+            old_cli = roaming / "npm" / "codex.cmd"
+            new_cli = Path(directory) / "custom-npm" / "codex.cmd"
+            for path in (old_cli, new_cli):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+
+            with patch.dict(os.environ, {"LOCALAPPDATA": directory, "APPDATA": str(roaming), "CODEX_INSTALL_DIR": ""}), \
+                 patch.object(core.shutil, "which", return_value=None), \
+                 patch.object(core, "_npm_prefix", return_value=str(new_cli.parent)), \
+                 patch.object(core, "_probe_version", side_effect=lambda path: (2, 0, 0) if path == str(new_cli) else (1, 0, 0)):
+                self.assertEqual(core.find_codex(), str(new_cli))
 
     def test_saved_old_npm_cli_is_replaced_by_desktop_cli(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict("os.environ", {"LOCALAPPDATA": directory}):

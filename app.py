@@ -105,8 +105,9 @@ class App(Tk):
         self.geometry("900x680")
         self.minsize(780, 650)
         self.configure(bg=BG)
-        self.time_slots = core.load_config()["times"]
-        self.codex = StringVar(value=core.load_config()["codex_path"])
+        config = core.load_config()
+        self.time_slots = config["times"]
+        self.codex = StringVar(value=config["codex_path"])
         self.notice = StringVar(value="设置好时间点后，点击下方按钮启用自动运行。")
         self.next_run = StringVar()
 
@@ -175,7 +176,11 @@ class App(Tk):
         path_row.pack(fill=X, padx=18, pady=(13, 8))
         Entry(path_row, textvariable=self.codex, bg="#F7F9FC", fg=INK, relief="flat", font=("Segoe UI", 9), highlightthickness=1, highlightbackground=LINE).pack(side=LEFT, fill=X, expand=True, ipady=8)
         ui_button(path_row, "选择", self.browse, compact=True).pack(side=RIGHT, padx=(7, 0))
-        ui_button(cli_card, "检查登录", self.check_login, compact=True).pack(anchor="w", padx=18, pady=(0, 16))
+        cli_actions = Frame(cli_card, bg=WHITE)
+        cli_actions.pack(anchor="w", padx=18, pady=(0, 16))
+        self.find_button = ui_button(cli_actions, "自动查找", self.auto_find_cli, compact=True)
+        self.find_button.pack(side=LEFT)
+        ui_button(cli_actions, "检查登录", self.check_login, compact=True).pack(side=LEFT, padx=(8, 0))
 
         log_card = Frame(right, bg=WHITE, highlightbackground=LINE, highlightthickness=1)
         log_card.pack(fill=BOTH, expand=True, pady=(14, 0))
@@ -272,6 +277,25 @@ class App(Tk):
         if path:
             self.codex.set(path)
 
+    def auto_find_cli(self) -> None:
+        self.notice.set("正在查找 Codex CLI…")
+        self.find_button.configure(state="disabled")
+
+        def work() -> None:
+            path = core.find_codex()
+
+            def finish() -> None:
+                self.find_button.configure(state="normal")
+                if path:
+                    self.codex.set(path)
+                    self.notice.set(f"已找到 Codex CLI：{path}。请点击“检查登录”；保存并启用后用于定时任务。")
+                else:
+                    self.notice.set("未找到可运行的 Codex CLI。请先安装 CLI，或点击“选择”手动指定路径。")
+
+            self.after(0, finish)
+
+        threading.Thread(target=work, daemon=True).start()
+
     def refresh(self) -> None:
         try:
             times = scheduler.installed_times()
@@ -301,7 +325,7 @@ class App(Tk):
             times = core.normalize_times(self.time_slots)
             path = self.codex.get().strip()
             if not Path(path).is_file():
-                raise ValueError("请先选择有效的 codex.cmd 或 codex.exe。")
+                raise ValueError("请先点击“自动查找”，或手动选择有效的 codex.cmd 或 codex.exe。")
             ready, reason = core.check_codex(path)
             if not ready:
                 raise ValueError(reason)
@@ -324,7 +348,7 @@ class App(Tk):
     def ping_now(self) -> None:
         path = self.codex.get().strip()
         if not Path(path).is_file():
-            messagebox.showerror("无法触发", "请先选择有效的 Codex CLI 路径。")
+            messagebox.showerror("无法触发", "请先点击“自动查找”，或手动选择有效的 Codex CLI 路径。")
             return
         self.notice.set("正在发送一次简短请求…")
 

@@ -47,11 +47,68 @@ def short_gaps(times: list[str]) -> list[tuple[str, str, int]]:
     ]
 
 
+def _npm_prefix() -> str:
+    npm = shutil.which("npm.cmd") or shutil.which("npm.exe") or shutil.which("npm")
+    if not npm:
+        return ""
+    try:
+        flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
+        result = subprocess.run(
+            [npm, "prefix", "-g"], capture_output=True, text=True, timeout=8,
+            check=False, creationflags=flags,
+        )
+        return result.stdout.strip() if result.returncode == 0 else ""
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+def _codex_candidates() -> list[str]:
+    """Look in PATH and bounded Windows install locations, without scanning drives."""
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def add(path: str | Path | None) -> None:
+        if not path:
+            return
+        candidate = Path(path)
+        key = os.path.normcase(os.path.abspath(candidate))
+        if candidate.suffix.lower() in (".exe", ".cmd") and key not in seen and candidate.is_file():
+            seen.add(key)
+            found.append(str(candidate))
+
+    for name in ("codex.exe", "codex.cmd", "codex"):
+        add(shutil.which(name))
+
+    local = Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local")
+    roaming = Path(os.environ.get("APPDATA") or Path.home() / "AppData" / "Roaming")
+    for directory in (
+        os.environ.get("CODEX_INSTALL_DIR"),
+        local / "Programs" / "OpenAI" / "Codex" / "bin",
+        roaming / "npm",
+        _npm_prefix(),
+    ):
+        if directory:
+            for name in ("codex.exe", "codex.cmd"):
+                add(Path(directory) / name)
+
+    desktop_bin = local / "OpenAI" / "Codex" / "bin"
+    if desktop_bin.is_dir():
+        try:
+            for candidate in desktop_bin.glob("*/codex.exe"):
+                add(candidate)
+        except OSError:
+            pass
+    return found
+
+
 def find_codex() -> str:
-    candidates = list(dict.fromkeys(filter(None, (
-        shutil.which("codex.exe"), shutil.which("codex.cmd"), shutil.which("codex"),
-    ))))
-    return max(candidates, key=_probe_version) if candidates else ""
+    best_path = ""
+    best_version = (0, 0, 0)
+    for path in _codex_candidates():
+        version = _probe_version(path)
+        if version > best_version:
+            best_path, best_version = path, version
+    return best_path
 
 
 def load_config() -> dict:
@@ -155,7 +212,7 @@ def _probe_version(path: str) -> tuple[int, int, int]:
 
 def check_codex(path: str) -> tuple[bool, str]:
     if not path or not Path(path).is_file():
-        return False, "找不到 Codex CLI；请先安装并登录，然后选择 codex.cmd 或 codex.exe。"
+        return False, "找不到 Codex CLI；请先安装并登录，然后点击“自动查找”或手动选择。"
     try:
         flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         environment = _subscription_env()
@@ -165,7 +222,7 @@ def check_codex(path: str) -> tuple[bool, str]:
         preferred_cli = find_codex()
         if preferred_cli and os.path.normcase(path) != os.path.normcase(preferred_cli):
             if _probe_version(preferred_cli) > _version_tuple(version.stdout):
-                return False, "所选 Codex CLI 版本较旧；请点击“选择”，改用电脑上版本较新的 Codex CLI。"
+                return False, "所选 Codex CLI 版本较旧；请点击“自动查找”，或手动选择较新的 Codex CLI。"
         login = subprocess.run([path, "login", "status"], capture_output=True, text=True, timeout=12, check=False, creationflags=flags, env=environment)
         login_text = (login.stdout + login.stderr).lower()
         if login.returncode != 0 or "chatgpt" not in login_text:
@@ -186,7 +243,7 @@ def _failure_message(events: list[dict], exit_code: int) -> str:
         details = str(error)
         break
     if "model_not_found" in details or ("not supported" in details and "ChatGPT" in details):
-        return "失败：这个 Codex CLI 选择了当前 ChatGPT 账号不支持的模型。请改用更新的 codex.exe，再点“检查登录”。"
+        return "失败：这个 Codex CLI 选择了当前 ChatGPT 账号不支持的模型。请更新 CLI，再点“自动查找”和“检查登录”。"
     if any(word in details.lower() for word in ("usage_limit", "rate_limit", "quota")):
         return "失败：当前额度或速率限制已触发；请稍后查看 Codex 使用量。"
     if any(word in details.lower() for word in ("unauthorized", "authentication", "invalid_token")):
