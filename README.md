@@ -6,9 +6,9 @@
 
 ## 下载与准备
 
-1. 电脑需要 Windows 10/11、网络连接，以及已安装的 Codex CLI。可按 [Codex 官方安装说明](https://learn.chatgpt.com/docs/cli)安装；如果已有 Node.js 和 npm，也可在 PowerShell 中运行 `npm install -g @openai/codex@latest`。
-2. 在 PowerShell 中运行 `codex login`，选择 **使用 ChatGPT 登录**，完成浏览器登录。运行 `codex login status`，确认显示 ChatGPT 登录。API Key 登录不会使用 ChatGPT 订阅额度。
-3. 从 [GitHub Releases 下载最新版 CodexWindowStarter.exe](https://github.com/Georgeupup/codex-auto-refresh/releases/latest/download/CodexWindowStarter.exe)。把它放到一个固定目录，例如 `C:\Tools\CodexWindowStarter\`，然后双击打开。程序不包含 Codex CLI，不能替代第 1 步。
+1. 电脑需要 Windows 10/11、网络连接，以及可运行的 Codex CLI。如果已安装 Codex 桌面版，可先用本工具的 **「自动查找」**检查是否能找到它附带的 CLI；找到后无需另装。否则可按 [Codex 官方安装说明](https://learn.chatgpt.com/docs/cli)安装，或在已有 Node.js 和 npm 的电脑上运行 `npm install -g @openai/codex@latest`。
+2. 从 [GitHub Releases 下载最新版 CodexWindowStarter.exe](https://github.com/Georgeupup/codex-auto-refresh/releases/latest/download/CodexWindowStarter.exe)。把它放到一个固定目录，例如 `C:\Tools\CodexWindowStarter\`，然后双击打开。本工具不会自动安装或登录 Codex CLI。
+3. 点击 **「自动查找」**，再点 **「检查登录」**。如果检查通过，说明找到的 CLI 已有 ChatGPT 登录状态，无需运行 `codex login`。若提示未登录或 API Key 模式，再在 PowerShell 中运行 `codex login`，选择 **使用 ChatGPT 登录**，完成浏览器登录后重新检查；如果 PowerShell 找不到 `codex` 命令，可运行 `& "软件显示的 CLI 完整路径" login`。若提示 CLI 未找到或版本过旧，先安装或更新 CLI。仅安装桌面版并不保证 CLI 已登录；API Key 登录也不会使用 ChatGPT 订阅额度。
 
 ## 设置定时运行
 
