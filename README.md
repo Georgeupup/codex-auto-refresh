@@ -53,7 +53,7 @@ python app.py
 
 输出为 `dist\CodexWindowStarter.exe`。正式版本的 exe 发布在 GitHub Releases，仓库中不存放构建产物。源代码入口为 `app.py`；`core.py` 负责配置与 CLI 请求，`scheduler.py` 负责 Windows 计划任务和启动项。
 
-窗口、托盘和 exe 使用同一套原创的编织图形加闹钟图标，非 OpenAI 官方标志。要重新生成图标，运行 `python assets\generate_icon.py`。
+窗口、托盘和 exe 使用同一套交织图形加闹钟图标，参考用户提供的图形，非 OpenAI 官方图标。图标原图为 `assets\logo_source.png`；要重新导出不同尺寸，运行 `python assets\generate_icon.py`。
 
 ## 致谢与许可
 

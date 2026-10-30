@@ -1,68 +1,44 @@
-"""Generate the app's original woven-clock icon at common Windows sizes."""
+"""Export the woven alarm-clock artwork at common Windows icon sizes."""
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parent
-SCALE = 4
-SIZE = 256 * SCALE
 RESAMPLE = Image.Resampling.LANCZOS
-
-
-def box(coords):
-    return tuple(round(value * SCALE) for value in coords)
-
-
-def point(coords):
-    return tuple(round(value * SCALE) for value in coords)
-
-
-def width(value):
-    return round(value * SCALE)
+ICON_SIZES = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
 
 
 def make_icon() -> Image.Image:
-    image = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    gradient = Image.new("RGBA", (SIZE, SIZE))
-    pixels = gradient.load()
-    top = (18, 157, 139)
-    bottom = (5, 95, 89)
-    for y in range(SIZE):
-        ratio = y / (SIZE - 1)
-        color = tuple(round(a * (1 - ratio) + b * ratio) for a, b in zip(top, bottom)) + (255,)
-        for x in range(SIZE):
-            pixels[x, y] = color
-    mask = Image.new("L", (SIZE, SIZE))
-    ImageDraw.Draw(mask).rounded_rectangle(box((4, 4, 252, 252)), radius=width(54), fill=255)
-    image.paste(gradient, (0, 0), mask)
+    """Clip the generated master artwork to its rounded-square tile."""
+    artwork = Image.open(ROOT / "logo_source.png").convert("RGBA")
+    if artwork.width != artwork.height:
+        raise ValueError("图标原图必须是正方形")
 
-    # Six separate rounded loops suggest a woven chat symbol without copying it.
-    for angle in range(0, 360, 60):
-        loop = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(loop)
-        draw.rounded_rectangle(
-            box((96, 28, 160, 157)), radius=width(32),
-            outline=(225, 255, 247, 255), width=width(17),
-        )
-        image.alpha_composite(loop.rotate(angle, resample=Image.Resampling.BICUBIC, center=point((128, 128))))
-
-    draw = ImageDraw.Draw(image)
-    # Alarm bells and feet remain legible at taskbar icon sizes.
-    draw.arc(box((75, 66, 114, 105)), 195, 335, fill=(255, 193, 89), width=width(9))
-    draw.arc(box((142, 66, 181, 105)), 205, 345, fill=(255, 193, 89), width=width(9))
-    draw.line((point((96, 169)), point((84, 184))), fill=(255, 193, 89), width=width(9))
-    draw.line((point((160, 169)), point((172, 184))), fill=(255, 193, 89), width=width(9))
-    draw.ellipse(box((81, 81, 175, 175)), fill=(250, 255, 252), outline=(5, 81, 76), width=width(8))
-    draw.line((point((128, 128)), point((143, 103))), fill=(4, 83, 78), width=width(8), joint="curve")
-    draw.line((point((128, 128)), point((106, 115))), fill=(4, 83, 78), width=width(8), joint="curve")
-    draw.ellipse(box((122, 122, 134, 134)), fill=(247, 167, 65))
-    return image.resize((256, 256), RESAMPLE)
+    scale = artwork.width / 1254
+    mask = Image.new("L", artwork.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(
+        (0, 0, artwork.width - 1, artwork.height - 1),
+        radius=round(220 * scale),
+        fill=255,
+    )
+    # Replace the master's light edge pixels before resizing so they cannot
+    # create a white fringe around the transparent tile corners.
+    inset = round(14 * scale)
+    inner = Image.new("L", artwork.size, 0)
+    ImageDraw.Draw(inner).rounded_rectangle(
+        (inset, inset, artwork.width - 1 - inset, artwork.height - 1 - inset),
+        radius=round(206 * scale),
+        fill=255,
+    )
+    artwork.paste((2, 84, 55, 255), (0, 0, artwork.width, artwork.height), ImageChops.subtract(mask, inner))
+    artwork.putalpha(mask)
+    return artwork.resize((256, 256), RESAMPLE)
 
 
 if __name__ == "__main__":
     icon = make_icon()
     icon.save(ROOT / "logo.png")
     icon.resize((32, 32), RESAMPLE).save(ROOT / "logo_32.png")
-    icon.save(ROOT / "logo.ico", format="ICO", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    icon.save(ROOT / "logo.ico", format="ICO", sizes=ICON_SIZES)
