@@ -100,23 +100,37 @@ class TrayIcon:
             menu = win32gui.CreatePopupMenu()
             try:
                 win32gui.AppendMenu(menu, win32con.MF_STRING, SHOW_COMMAND, "打开窗口")
-                win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, None)
+                win32gui.AppendMenu(menu, win32con.MF_SEPARATOR, 0, "")
                 win32gui.AppendMenu(menu, win32con.MF_STRING, EXIT_COMMAND, "完全退出")
                 x, y = win32gui.GetCursorPos()
-                win32gui.SetForegroundWindow(hwnd)
-                win32gui.TrackPopupMenu(menu, win32con.TPM_LEFTALIGN | win32con.TPM_RIGHTBUTTON, x, y, 0, hwnd, None)
-                win32gui.PostMessage(hwnd, win32con.WM_NULL, 0, 0)
+                try:
+                    win32gui.SetForegroundWindow(hwnd)
+                except win32gui.error:
+                    # Windows can deny focus to a background process; the menu can still open.
+                    pass
+                command = win32gui.TrackPopupMenu(
+                    menu,
+                    win32con.TPM_LEFTALIGN | win32con.TPM_RIGHTBUTTON | win32con.TPM_RETURNCMD | win32con.TPM_NONOTIFY,
+                    x, y, 0, hwnd, None,
+                )
+                try:
+                    win32gui.PostMessage(hwnd, win32con.WM_NULL, 0, 0)
+                except win32gui.error:
+                    pass
+                self._dispatch_command(command)
             finally:
                 win32gui.DestroyMenu(menu)
         return 0
 
     def _on_command(self, hwnd: int, msg: int, wparam: int, lparam: int) -> int:
-        command = win32api.LOWORD(wparam)
+        self._dispatch_command(win32api.LOWORD(wparam))
+        return 0
+
+    def _dispatch_command(self, command: int) -> None:
         if command == SHOW_COMMAND:
             self.on_action("show")
         elif command == EXIT_COMMAND:
             self.on_action("exit")
-        return 0
 
     def _on_close(self, hwnd: int, msg: int, wparam: int, lparam: int) -> int:
         win32gui.DestroyWindow(hwnd)
